@@ -1,6 +1,5 @@
 resolver: lts-5.5
 packages:
 - '.'
-extra-deps:
-- unordered-containers-0.2.7.0
+extra-deps: []
 flags: {}

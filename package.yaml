@@ -5,7 +5,7 @@ description: Lenses for types in generics-sop package
 author: Oleg Grenrus <oleg.grenrus@iki.fi>
 maintainer: Oleg Grenrus <oleg.grenrus@iki.fi>
 license: BSD3
-github: phadej/insert-ordered-containers
+github: phadej/generics-sop-lens
 category: Web
 tested-with: GHC==7.8.4, GHC==7.10.3, GHC==8.0.1
 extra-source-files:
