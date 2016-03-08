@@ -18,6 +18,7 @@
 -- 'Field1' ('POP' f (x ': zs)) ('NP' f (y ': zs)) (NP f x) (NP f y)
 -- @
 module Generics.SOP.Lens (
+    rep,
     -- * SOP & POP
     sop, pop,
     unsop, unpop,
@@ -38,6 +39,10 @@ module Generics.SOP.Lens (
 
 import Control.Lens
 import Generics.SOP hiding (from)
+import qualified Generics.SOP as SOP
+
+rep :: Generic a => Iso' a (Rep a)
+rep = iso SOP.from SOP.to
 
 -------------------------------------------------------------------------------
 -- SOP & POP
