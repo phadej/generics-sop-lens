@@ -35,6 +35,9 @@ module Generics.SOP.Lens (
     unSingletonS,
     _Z,
     _S,
+    -- * DatatypeInfo
+    datatypeName,
+    constructorInfo,
     ) where
 
 import Control.Lens
@@ -55,17 +58,17 @@ sop = iso SOP unSOP
 
 unsop ::
     forall (f :: k -> *) xss yss.
-    Iso (SOP f xss) (SOP f yss) (NS (NP f) xss) (NS (NP f) yss) 
+    Iso (SOP f xss) (SOP f yss) (NS (NP f) xss) (NS (NP f) yss)
 unsop = from sop
 
 pop ::
     forall (f :: k -> *) xss yss.
-    Iso (NP (NP f) xss) (NP (NP f) yss) (POP f xss) (POP f yss) 
+    Iso (NP (NP f) xss) (NP (NP f) yss) (POP f xss) (POP f yss)
 pop = iso POP unPOP
 
 unpop ::
     forall (f :: k -> *) xss yss.
-    Iso (POP f xss) (POP f yss) (NP (NP f) xss) (NP (NP f) yss)  
+    Iso (POP f xss) (POP f yss) (NP (NP f) xss) (NP (NP f) yss)
 unpop = from pop
 
 instance (t ~ SOP f xss) => Rewrapped (SOP f xss) t
@@ -122,7 +125,7 @@ singletonP = iso s g
     s :: f x -> NP f '[x]
     s x = x :* Nil
 
-unSingletonP :: 
+unSingletonP ::
     forall (f :: k -> *) x y.
     Iso (NP f '[x]) (NP f '[y]) (f x) (f y)
 unSingletonP = from singletonP
@@ -182,7 +185,7 @@ instance Field9 (POP f' (a ': b ': c ': d ': e ': f ': g ': h ': x ': zs)) (POP 
 
 singletonS ::
     forall (f :: k -> *) x y.
-    Iso (f x) (f y) (NS f '[x]) (NS f '[y]) 
+    Iso (f x) (f y) (NS f '[x]) (NS f '[y])
 singletonS = iso s g
   where
     g :: NS f '[y] -> f y
@@ -196,7 +199,7 @@ singletonS = iso s g
 
 unSingletonS ::
     forall (f :: k -> *) x y.
-    Iso (NS f '[x]) (NS f '[y]) (f x) (f y)  
+    Iso (NS f '[x]) (NS f '[y]) (f x) (f y)
 unSingletonS = from singletonS
 
 _Z ::
@@ -216,3 +219,30 @@ _S = prism S p
     p :: NS f (x ': ys) -> Either (NS f (x ': zs)) (NS f ys)
     p (Z x)  = Left $ Z x
     p (S xs) = Right $ xs
+
+-------------------------------------------------------------------------------
+-- DatatypeInfo
+-------------------------------------------------------------------------------
+
+datatypeName :: Lens' (DatatypeInfo xss) DatatypeName
+datatypeName = lens g s
+  where
+    g :: DatatypeInfo xss -> DatatypeName
+    g (ADT _ n _)     = n
+    g (Newtype _ n _) = n
+
+    s :: DatatypeInfo xss -> DatatypeName -> DatatypeInfo xss
+    s (ADT m _ cs)    n = ADT m n cs
+    s (Newtype m _ c) n = Newtype m n c
+
+constructorInfo :: Lens' (DatatypeInfo xss) (NP ConstructorInfo xss)
+constructorInfo = lens g s
+  where
+    g :: DatatypeInfo xss -> NP ConstructorInfo xss
+    g (ADT _ _ cs)    = cs
+    g (Newtype _ _ c) = c :* Nil
+
+    s :: DatatypeInfo xss -> NP ConstructorInfo xss -> DatatypeInfo xss
+    s (ADT m n _)     cs          = ADT m n cs
+    s (Newtype m n _) (c :* Nil)  = Newtype m n c
+    s _ _ = error "constructorInfo set: impossible happened"
