@@ -3,7 +3,7 @@
 -- see: https://github.com/sol/hpack
 
 name:           generics-sop-lens
-version:        0.1.0.0
+version:        0.1.1.0
 synopsis:       Lenses for types in generics-sop
 description:    Lenses for types in generics-sop package
 category:       Web
