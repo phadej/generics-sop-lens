@@ -36,6 +36,7 @@ module Generics.SOP.Lens (
     _Z,
     _S,
     -- * DatatypeInfo
+    moduleName,
     datatypeName,
     constructorInfo,
     ) where
@@ -223,6 +224,17 @@ _S = prism S p
 -------------------------------------------------------------------------------
 -- DatatypeInfo
 -------------------------------------------------------------------------------
+
+moduleName :: Lens' (DatatypeInfo xss) ModuleName
+moduleName = lens g s
+  where
+    g :: DatatypeInfo xss -> ModuleName
+    g (ADT m _ _)     = m
+    g (Newtype m _ _) = m
+
+    s :: DatatypeInfo xss -> ModuleName -> DatatypeInfo xss
+    s (ADT _ n cs)    m = ADT m n cs
+    s (Newtype _ n c) m = Newtype m n c
 
 datatypeName :: Lens' (DatatypeInfo xss) DatatypeName
 datatypeName = lens g s
