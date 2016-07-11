@@ -1,5 +1,5 @@
 name: generics-sop-lens
-version: 0.1.1.0
+version: 0.1.2.0
 synopsis: Lenses for types in generics-sop
 description: Lenses for types in generics-sop package
 author: Oleg Grenrus <oleg.grenrus@iki.fi>
@@ -10,6 +10,7 @@ category: Web
 tested-with: GHC==7.8.4, GHC==7.10.3, GHC==8.0.1
 extra-source-files:
 - README.md
+- CHANGELOG.md
 
 ghc-options: -Wall
 

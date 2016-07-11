@@ -39,6 +39,7 @@ module Generics.SOP.Lens (
     moduleName,
     datatypeName,
     constructorInfo,
+    constructorName,
     ) where
 
 import Control.Lens
@@ -258,3 +259,10 @@ constructorInfo = lens g s
     s (ADT m n _)     cs          = ADT m n cs
     s (Newtype m n _) (c :* Nil)  = Newtype m n c
     s _ _ = error "constructorInfo set: impossible happened"
+
+-- | /Note:/ 'Infix' constructor has operator as a 'ConstructorName'. Use as
+-- setter with care.
+constructorName :: Lens' (ConstructorInfo xs) ConstructorName
+constructorName f (Constructor n      ) = (\ n' -> Constructor n'      ) `fmap` f n
+constructorName f (Infix       n a fix) = (\ n' -> Infix       n' a fix) `fmap` f n
+constructorName f (Record      n finfo) = (\ n' -> Record      n' finfo) `fmap` f n
