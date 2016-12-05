@@ -1,5 +1,6 @@
 {-# LANGUAGE CPP                   #-}
 {-# LANGUAGE DataKinds             #-}
+{-# LANGUAGE EmptyCase             #-}
 {-# LANGUAGE FlexibleInstances     #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE PolyKinds             #-}
@@ -36,10 +37,10 @@ module Generics.SOP.Lens (
     _Z,
     _S,
     -- * DatatypeInfo
-    moduleName,
-    datatypeName,
-    constructorInfo,
-    constructorName,
+    Generics.SOP.Lens.moduleName,
+    Generics.SOP.Lens.datatypeName,
+    Generics.SOP.Lens.constructorInfo,
+    Generics.SOP.Lens.constructorName,
     ) where
 
 import Control.Lens
@@ -120,7 +121,7 @@ singletonP = iso s g
   where
     g :: NP f '[y] -> f y
     g (y  :* Nil)   = y
-#if __GLASGOW_HASKELL < 800
+#if __GLASGOW_HASKELL__ < 800
     g _ = error "singletonP"
 #endif
 
@@ -192,8 +193,10 @@ singletonS = iso s g
   where
     g :: NS f '[y] -> f y
     g (Z y)   = y
-#if __GLASGOW_HASKELL < 800
+#if __GLASGOW_HASKELL__ < 800
     g _ = error "singletonS"
+#else
+    g (S x) = case x of {}
 #endif
 
     s :: f x -> NS f '[x]
@@ -258,7 +261,9 @@ constructorInfo = lens g s
     s :: DatatypeInfo xss -> NP ConstructorInfo xss -> DatatypeInfo xss
     s (ADT m n _)     cs          = ADT m n cs
     s (Newtype m n _) (c :* Nil)  = Newtype m n c
+#if __GLASGOW_HASKELL__ < 800
     s _ _ = error "constructorInfo set: impossible happened"
+#endif
 
 -- | /Note:/ 'Infix' constructor has operator as a 'ConstructorName'. Use as
 -- setter with care.
