@@ -1,6 +1,6 @@
 name:           generics-sop-lens
 version:        0.1.2.1
-x-revision:     4
+x-revision:     5
 synopsis:       Lenses for types in generics-sop
 description:    Lenses for types in generics-sop package
 category:       Web
