@@ -1,0 +1,4 @@
+packages: .
+
+package generics-sop-lens
+  ghc-options: -Wall

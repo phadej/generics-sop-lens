@@ -1,4 +1,5 @@
 {-# LANGUAGE CPP                   #-}
+{-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE EmptyCase             #-}
 {-# LANGUAGE FlexibleInstances     #-}
@@ -8,6 +9,11 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
+
+#ifndef MIN_VERSION_generics_sop
+#define MIN_VERSION_generics_sop(x,y,z) 1
+#endif
+
 -- | Lenses for "Generics.SOP"
 --
 -- Orphan instances:
@@ -19,21 +25,19 @@
 -- 'Field1' ('POP' f (x ': zs)) ('NP' f (y ': zs)) (NP f x) (NP f y)
 -- @
 module Generics.SOP.Lens (
-    rep,
+    -- * Representations
+    rep, productRep,
     -- * SOP & POP
     sop, pop,
-    unsop, unpop,
+    _SOP, _POP,
     -- * Functors
-    isoI, isoK,
-    uni, unk,
+    _I, _K,
     -- * Products
-    singletonP,
-    unSingletonP,
-    headLens,
-    tailLens,
+    npSingleton,
+    npHead,
+    npTail,
     -- * Sums
-    singletonS,
-    unSingletonS,
+    nsSingleton,
     _Z,
     _S,
     -- * DatatypeInfo
@@ -54,96 +58,120 @@ import qualified Generics.SOP as SOP
 import Generics.SOP.Metadata
 #endif
 
-rep :: Generic a => Iso' a (Rep a)
+-------------------------------------------------------------------------------
+-- Representations
+-------------------------------------------------------------------------------
+
+-- | Convert from the data type to its representation (or back).
+--
+-- >>> Just 'x' ^. rep
+-- SOP (S (Z (I 'x' :* Nil)))
+rep :: (Generic a, Generic b) => Iso a b (Rep a) (Rep b)
 rep = iso SOP.from SOP.to
+
+-- | Convert from the product data type to its representation (or back)
+--
+-- >>> ('x', True) ^. productRep
+-- I 'x' :* I True :* Nil
+--
+#if MIN_VERSION_generics_sop(0,3,1)
+productRep :: (IsProductType a xs, IsProductType b ys) => Iso a b (NP I xs) (NP I ys)
+#else
+productRep :: (Generic a, Generic b, Code a ~ '[xs], Code b ~ '[ys]) =>  Iso a b (NP I xs) (NP I ys)
+#endif
+productRep = rep . sop . nsSingleton
 
 -------------------------------------------------------------------------------
 -- SOP & POP
 -------------------------------------------------------------------------------
 
+-- | The only field of 'SOP'.
+--
+-- >>> Just 'x' ^. rep . sop
+-- S (Z (I 'x' :* Nil))
 sop ::
     forall (f :: k -> *) xss yss.
-    Iso (NS (NP f) xss) (NS (NP f) yss) (SOP f xss) (SOP f yss)
-sop = iso SOP unSOP
+    Iso (SOP f xss) (SOP f yss) (NS (NP f) xss) (NS (NP f) yss)
+sop = iso unSOP SOP
 
-unsop ::
+-- | Alias for 'sop'.
+_SOP ::
     forall (f :: k -> *) xss yss.
     Iso (SOP f xss) (SOP f yss) (NS (NP f) xss) (NS (NP f) yss)
-unsop = from sop
+_SOP = sop
 
+-- | The only field of 'POP'.
 pop ::
     forall (f :: k -> *) xss yss.
-    Iso (NP (NP f) xss) (NP (NP f) yss) (POP f xss) (POP f yss)
-pop = iso POP unPOP
+    Iso (POP f xss) (POP f yss) (NP (NP f) xss) (NP (NP f) yss)
+pop = iso unPOP POP
 
-unpop ::
+-- | Alias for 'pop'.
+_POP ::
     forall (f :: k -> *) xss yss.
     Iso (POP f xss) (POP f yss) (NP (NP f) xss) (NP (NP f) yss)
-unpop = from pop
+_POP = pop
 
 instance (t ~ SOP f xss) => Rewrapped (SOP f xss) t
 instance Wrapped (SOP f xss) where
     type Unwrapped (SOP f xss) = NS (NP f) xss
-    _Wrapped' = from sop
+    _Wrapped' = sop
 
 instance (t ~ POP f xss) => Rewrapped (POP f xss) t
 instance Wrapped (POP f xss) where
     type Unwrapped (POP f xss) = NP (NP f) xss
-    _Wrapped' = from pop
+    _Wrapped' = pop
 
 -------------------------------------------------------------------------------
 -- Basic functors
 -------------------------------------------------------------------------------
 
-isoI :: Iso a b (I a) (I b)
-isoI = iso I unI
+_I :: Iso (I a) (I b) a b
+_I = iso unI I
 
-uni :: Iso (I a) (I b) a b
-uni = iso unI I
-
-isoK :: Iso a b (K a c) (K b c)
-isoK = iso K unK
-
-unk :: Iso (K a c) (K b c) a b
-unk = iso unK K
+_K :: Iso (K a c) (K b c) a b
+_K = iso unK K
 
 instance (t ~ I a) => Rewrapped (I a) t
 instance Wrapped (I a) where
     type Unwrapped (I a) = a
-    _Wrapped' = from isoI
+    _Wrapped' = _I
 
 instance (t ~ K a b) => Rewrapped (K a b) t
 instance Wrapped (K a b) where
     type Unwrapped (K a b) = a
-    _Wrapped' = from isoK
+    _Wrapped' = _K
 
 -------------------------------------------------------------------------------
 -- Products
 -------------------------------------------------------------------------------
 
-singletonP ::
-    forall (f :: k -> *) x y.
-    Iso (f x) (f y) (NP f '[x]) (NP f '[y])
-singletonP = iso s g
-  where
-    g :: NP f '[y] -> f y
-    g (y  :* Nil)   = y
-#if __GLASGOW_HASKELL__ < 800
-    g _ = error "singletonP"
-#endif
-
-    s :: f x -> NP f '[x]
-    s x = x :* Nil
-
-unSingletonP ::
+npSingleton ::
     forall (f :: k -> *) x y.
     Iso (NP f '[x]) (NP f '[y]) (f x) (f y)
-unSingletonP = from singletonP
+npSingleton = iso g s
+  where
+    g :: NP f '[x] -> f x
+    g (x  :* Nil)   = x
+#if __GLASGOW_HASKELL__ < 800
+    g _ = error "_NPSingleton"
+#endif
 
-headLens ::
+    s :: f y -> NP f '[y]
+    s y = y :* Nil
+
+type family UnSingleton (xs :: [k]) :: k where
+    UnSingleton '[x] = x
+
+instance (t ~ NS f xs, xs ~ '[x]) => Rewrapped (NS f xs) t
+instance (xs ~ '[x]) => Wrapped (NS f xs) where
+    type Unwrapped (NS f xs) = f (UnSingleton xs)
+    _Wrapped' = nsSingleton
+
+npHead ::
     forall (f :: k -> *) x y zs.
     Lens (NP f (x ': zs)) (NP f (y ': zs)) (f x) (f y)
-headLens = lens g s
+npHead = lens g s
   where
     g :: NP f (x ': zs) -> f x
     g (x  :* _zs)   = x
@@ -151,10 +179,10 @@ headLens = lens g s
     s :: NP f (x ': zs) -> f y -> NP f (y ': zs)
     s (_x :*  zs) y = y :* zs
 
-tailLens ::
+npTail ::
     forall (f :: k -> *) x ys zs.
     Lens (NP f (x ': ys)) (NP f (x ': zs)) (NP f ys) (NP f zs)
-tailLens = lens g s
+npTail = lens g s
   where
     g :: NP f (x ': ys) -> NP f ys
     g (_x :*  ys)    = ys
@@ -162,57 +190,49 @@ tailLens = lens g s
     s :: NP f (x ': ys) -> NP f zs -> NP f (x ': zs)
     s (x  :* _ys) zs = x :* zs
 
-instance Field1 (NP f (x ': zs)) (NP f (y ': zs)) (f x) (f y) where _1 = headLens
-instance Field1 (POP f (x ': zs)) (POP f (y ': zs)) (NP f x) (NP f y) where _1 = from pop . _1
+instance Field1 (NP f (x ': zs)) (NP f (y ': zs)) (f x) (f y) where _1 = npHead
+instance Field1 (POP f (x ': zs)) (POP f (y ': zs)) (NP f x) (NP f y) where _1 = _POP . _1
 
-instance Field2 (NP f (a ': x ': zs)) (NP f (a ': y ': zs)) (f x) (f y) where _2 = tailLens . _1
-instance Field2 (POP f (a ': x ': zs)) (POP f (a ': y ': zs)) (NP f x) (NP f y) where _2 = from pop . _2
+instance Field2 (NP f (a ': x ': zs)) (NP f (a ': y ': zs)) (f x) (f y) where _2 = npTail . _1
+instance Field2 (POP f (a ': x ': zs)) (POP f (a ': y ': zs)) (NP f x) (NP f y) where _2 = _POP . _2
 
-instance Field3 (NP f (a ': b ': x ': zs)) (NP f (a ': b ': y ': zs)) (f x) (f y) where _3 = tailLens . _2
-instance Field3 (POP f (a ': b ': x ': zs)) (POP f (a ': b ': y ': zs)) (NP f x) (NP f y) where _3 = from pop . _3
+instance Field3 (NP f (a ': b ': x ': zs)) (NP f (a ': b ': y ': zs)) (f x) (f y) where _3 = npTail . _2
+instance Field3 (POP f (a ': b ': x ': zs)) (POP f (a ': b ': y ': zs)) (NP f x) (NP f y) where _3 = _POP . _3
 
-instance Field4 (NP f (a ': b ': c ': x ': zs)) (NP f (a ': b ': c ': y ': zs)) (f x) (f y) where _4 = tailLens . _3
-instance Field4 (POP f (a ': b ': c ': x ': zs)) (POP f (a ': b ': c ': y ': zs)) (NP f x) (NP f y) where _4 = from pop . _4
+instance Field4 (NP f (a ': b ': c ': x ': zs)) (NP f (a ': b ': c ': y ': zs)) (f x) (f y) where _4 = npTail . _3
+instance Field4 (POP f (a ': b ': c ': x ': zs)) (POP f (a ': b ': c ': y ': zs)) (NP f x) (NP f y) where _4 = _POP . _4
 
-instance Field5 (NP f (a ': b ': c ': d ': x ': zs)) (NP f (a ': b ': c ': d ': y ': zs)) (f x) (f y) where _5 = tailLens . _4
-instance Field5 (POP f (a ': b ': c ': d ': x ': zs)) (POP f (a ': b ': c ': d ': y ': zs)) (NP f x) (NP f y) where _5 = from pop . _5
+instance Field5 (NP f (a ': b ': c ': d ': x ': zs)) (NP f (a ': b ': c ': d ': y ': zs)) (f x) (f y) where _5 = npTail . _4
+instance Field5 (POP f (a ': b ': c ': d ': x ': zs)) (POP f (a ': b ': c ': d ': y ': zs)) (NP f x) (NP f y) where _5 = _POP . _5
 
-instance Field6 (NP f (a ': b ': c ': d ': e ': x ': zs)) (NP f (a ': b ': c ': d ': e ': y ': zs)) (f x) (f y) where _6 = tailLens . _5
-instance Field6 (POP f (a ': b ': c ': d ': e ': x ': zs)) (POP f (a ': b ': c ': d ': e ': y ': zs)) (NP f x) (NP f y) where _6 = from pop . _6
+instance Field6 (NP f (a ': b ': c ': d ': e ': x ': zs)) (NP f (a ': b ': c ': d ': e ': y ': zs)) (f x) (f y) where _6 = npTail . _5
+instance Field6 (POP f (a ': b ': c ': d ': e ': x ': zs)) (POP f (a ': b ': c ': d ': e ': y ': zs)) (NP f x) (NP f y) where _6 = _POP . _6
 
-instance Field7 (NP f' (a ': b ': c ': d ': e ': f ': x ': zs)) (NP f' (a ': b ': c ': d ': e ': f ': y ': zs)) (f' x) (f' y) where _7 = tailLens . _6
-instance Field7 (POP f' (a ': b ': c ': d ': e ': f ': x ': zs)) (POP f' (a ': b ': c ': d ': e ': f ': y ': zs)) (NP f' x) (NP f' y) where _7 = from pop . _7
+instance Field7 (NP f' (a ': b ': c ': d ': e ': f ': x ': zs)) (NP f' (a ': b ': c ': d ': e ': f ': y ': zs)) (f' x) (f' y) where _7 = npTail . _6
+instance Field7 (POP f' (a ': b ': c ': d ': e ': f ': x ': zs)) (POP f' (a ': b ': c ': d ': e ': f ': y ': zs)) (NP f' x) (NP f' y) where _7 = _POP . _7
 
-instance Field8 (NP f' (a ': b ': c ': d ': e ': f ': g ': x ': zs)) (NP f' (a ': b ': c ': d ': e ': f ': g ': y ': zs)) (f' x) (f' y) where _8 = tailLens . _7
-instance Field8 (POP f' (a ': b ': c ': d ': e ': f ': g ': x ': zs)) (POP f' (a ': b ': c ': d ': e ': f ': g ': y ': zs)) (NP f' x) (NP f' y) where _8 = from pop . _8
+instance Field8 (NP f' (a ': b ': c ': d ': e ': f ': g ': x ': zs)) (NP f' (a ': b ': c ': d ': e ': f ': g ': y ': zs)) (f' x) (f' y) where _8 = npTail . _7
+instance Field8 (POP f' (a ': b ': c ': d ': e ': f ': g ': x ': zs)) (POP f' (a ': b ': c ': d ': e ': f ': g ': y ': zs)) (NP f' x) (NP f' y) where _8 = _POP . _8
 
-instance Field9 (NP f' (a ': b ': c ': d ': e ': f ': g ': h ': x ': zs)) (NP f' (a ': b ': c ': d ': e ': f ': g ': h ': y ': zs)) (f' x) (f' y) where _9 = tailLens . _8
-instance Field9 (POP f' (a ': b ': c ': d ': e ': f ': g ': h ': x ': zs)) (POP f' (a ': b ': c ': d ': e ': f ': g ': h ': y ': zs)) (NP f' x) (NP f' y) where _9 = from pop . _9
+instance Field9 (NP f' (a ': b ': c ': d ': e ': f ': g ': h ': x ': zs)) (NP f' (a ': b ': c ': d ': e ': f ': g ': h ': y ': zs)) (f' x) (f' y) where _9 = npTail . _8
+instance Field9 (POP f' (a ': b ': c ': d ': e ': f ': g ': h ': x ': zs)) (POP f' (a ': b ': c ': d ': e ': f ': g ': h ': y ': zs)) (NP f' x) (NP f' y) where _9 = _POP . _9
 
 -------------------------------------------------------------------------------
 -- Sums
 -------------------------------------------------------------------------------
 
-singletonS ::
+nsSingleton ::
     forall (f :: k -> *) x y.
-    Iso (f x) (f y) (NS f '[x]) (NS f '[y])
-singletonS = iso s g
+    Iso (NS f '[x]) (NS f '[y]) (f x) (f y)
+nsSingleton = iso g Z
   where
-    g :: NS f '[y] -> f y
-    g (Z y)   = y
+    g :: NS f '[x] -> f x
+    g (Z x)   = x
 #if __GLASGOW_HASKELL__ < 800
     g _ = error "singletonS"
 #else
-    g (S x) = case x of {}
+    g (S v) = case v of {}
 #endif
-
-    s :: f x -> NS f '[x]
-    s x = Z x
-
-unSingletonS ::
-    forall (f :: k -> *) x y.
-    Iso (NS f '[x]) (NS f '[y]) (f x) (f y)
-unSingletonS = from singletonS
 
 _Z ::
     forall (f :: k -> *) x y zs.
