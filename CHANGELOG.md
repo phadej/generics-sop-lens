@@ -1,3 +1,7 @@
+- 0.1.3
+    - Support `generics-sop-0.5`
+    - Add `strictnessInfo` traversal
+
 - 0.1.2.1
     - Fix to work with `generics-sop-0.2.3.0`
 
