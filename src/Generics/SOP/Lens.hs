@@ -41,11 +41,18 @@ module Generics.SOP.Lens (
     Generics.SOP.Lens.datatypeName,
     Generics.SOP.Lens.constructorInfo,
     Generics.SOP.Lens.constructorName,
+#if MIN_VERSION_generics_sop(0,5,0)
+    Generics.SOP.Lens.strictnessInfo,
+#endif
     ) where
 
 import Control.Lens
 import Generics.SOP hiding (from)
 import qualified Generics.SOP as SOP
+
+#if MIN_VERSION_generics_sop(0,5,0)
+import Generics.SOP.Metadata
+#endif
 
 rep :: Generic a => Iso' a (Rep a)
 rep = iso SOP.from SOP.to
@@ -233,33 +240,57 @@ moduleName :: Lens' (DatatypeInfo xss) ModuleName
 moduleName = lens g s
   where
     g :: DatatypeInfo xss -> ModuleName
+#if MIN_VERSION_generics_sop(0,5,0)
+    g (ADT m _ _ _)   = m
+#else
     g (ADT m _ _)     = m
+#endif
     g (Newtype m _ _) = m
 
     s :: DatatypeInfo xss -> ModuleName -> DatatypeInfo xss
+#if MIN_VERSION_generics_sop(0,5,0)
+    s (ADT _ n cs ss) m = ADT m n cs ss
+#else
     s (ADT _ n cs)    m = ADT m n cs
+#endif
     s (Newtype _ n c) m = Newtype m n c
 
 datatypeName :: Lens' (DatatypeInfo xss) DatatypeName
 datatypeName = lens g s
   where
     g :: DatatypeInfo xss -> DatatypeName
+#if MIN_VERSION_generics_sop(0,5,0)
+    g (ADT _ n _ _)   = n
+#else
     g (ADT _ n _)     = n
+#endif
     g (Newtype _ n _) = n
 
     s :: DatatypeInfo xss -> DatatypeName -> DatatypeInfo xss
+#if MIN_VERSION_generics_sop(0,5,0)
+    s (ADT m _ cs ss) n = ADT m n cs ss
+#else
     s (ADT m _ cs)    n = ADT m n cs
+#endif
     s (Newtype m _ c) n = Newtype m n c
 
 constructorInfo :: Lens' (DatatypeInfo xss) (NP ConstructorInfo xss)
 constructorInfo = lens g s
   where
     g :: DatatypeInfo xss -> NP ConstructorInfo xss
+#if MIN_VERSION_generics_sop(0,5,0)
+    g (ADT _ _ cs _)  = cs
+#else
     g (ADT _ _ cs)    = cs
+#endif
     g (Newtype _ _ c) = c :* Nil
 
     s :: DatatypeInfo xss -> NP ConstructorInfo xss -> DatatypeInfo xss
+#if MIN_VERSION_generics_sop(0,5,0)
+    s (ADT m n _ ss)  cs          = ADT m n cs ss
+#else
     s (ADT m n _)     cs          = ADT m n cs
+#endif
     s (Newtype m n _) (c :* Nil)  = Newtype m n c
 #if __GLASGOW_HASKELL__ < 800
     s _ _ = error "constructorInfo set: impossible happened"
@@ -271,3 +302,10 @@ constructorName :: Lens' (ConstructorInfo xs) ConstructorName
 constructorName f (Constructor n      ) = (\ n' -> Constructor n'      ) `fmap` f n
 constructorName f (Infix       n a fix) = (\ n' -> Infix       n' a fix) `fmap` f n
 constructorName f (Record      n finfo) = (\ n' -> Record      n' finfo) `fmap` f n
+
+#if MIN_VERSION_generics_sop(0,5,0)
+-- | Strictness info is only aviable for 'ADT' data. This combinator is available only with @generics-sop@ 0.5 or later.
+strictnessInfo :: Traversal' (DatatypeInfo xss) (POP StrictnessInfo xss)
+strictnessInfo _ di@(Newtype {}) = pure di
+strictnessInfo f (ADT m n cs ss) = ADT m n cs <$> f ss
+#endif
