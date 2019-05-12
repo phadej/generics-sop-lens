@@ -152,5 +152,5 @@ script:
   # Constraint set generics-sop-0.4
   - if [ $HCNUMVER -ge 80000 ] ; then ${CABAL} v2-build -w ${HC} --disable-tests --disable-benchmarks --constraint='generics-sop ==0.4.*' all | color_cabal_output ; fi
 
-# REGENDATA ["--config=cabal.haskell-ci","generics-sop-lens.cabal"]
+# REGENDATA ["--config=cabal.haskell-ci","cabal.project"]
 # EOF

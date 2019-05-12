@@ -1,3 +1,6 @@
+- 0.2
+    - Rename everything
+
 - 0.1.3
     - Support `generics-sop-0.5`
     - Add `strictnessInfo` traversal

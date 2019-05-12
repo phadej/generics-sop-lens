@@ -1,5 +1,5 @@
 name:           generics-sop-lens
-version:        0.1.3
+version:        0.2
 synopsis:       Lenses for types in generics-sop
 description:    Lenses for types in generics-sop package
 category:       Generics, Data
