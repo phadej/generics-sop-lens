@@ -50,8 +50,8 @@ module Generics.SOP.Lens (
 #endif
     ) where
 
-import Control.Lens
-import Generics.SOP hiding (from)
+import           Control.Lens
+import           Generics.SOP hiding (from)
 import qualified Generics.SOP as SOP
 
 #if MIN_VERSION_generics_sop(0,5,0)
@@ -250,7 +250,7 @@ _S = prism S p
   where
     p :: NS f (x ': ys) -> Either (NS f (x ': zs)) (NS f ys)
     p (Z x)  = Left $ Z x
-    p (S xs) = Right $ xs
+    p (S xs) = Right xs
 
 -------------------------------------------------------------------------------
 -- DatatypeInfo
@@ -326,6 +326,6 @@ constructorName f (Record      n finfo) = (\ n' -> Record      n' finfo) `fmap` 
 #if MIN_VERSION_generics_sop(0,5,0)
 -- | Strictness info is only aviable for 'ADT' data. This combinator is available only with @generics-sop@ 0.5 or later.
 strictnessInfo :: Traversal' (DatatypeInfo xss) (POP StrictnessInfo xss)
-strictnessInfo _ di@(Newtype {}) = pure di
+strictnessInfo _ di@Newtype {}   = pure di
 strictnessInfo f (ADT m n cs ss) = ADT m n cs <$> f ss
 #endif
