@@ -10,8 +10,8 @@
 {-# LANGUAGE TypeOperators         #-}
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
 
-#ifndef MIN_VERSION_generics_sop
-#define MIN_VERSION_generics_sop(x,y,z) 1
+#if __GLASGOW_HASKELL__ <804
+{-# LANGUAGE TypeInType            #-}
 #endif
 
 -- | Lenses for "Generics.SOP"
@@ -45,18 +45,15 @@ module Generics.SOP.Lens (
     Generics.SOP.Lens.datatypeName,
     Generics.SOP.Lens.constructorInfo,
     Generics.SOP.Lens.constructorName,
-#if MIN_VERSION_generics_sop(0,5,0)
     Generics.SOP.Lens.strictnessInfo,
-#endif
     ) where
 
 import           Control.Lens
-import           Generics.SOP hiding (from)
-import qualified Generics.SOP as SOP
+import           Data.Kind             (Type)
+import           Generics.SOP          hiding (from)
+import qualified Generics.SOP          as SOP
+import           Generics.SOP.Metadata
 
-#if MIN_VERSION_generics_sop(0,5,0)
-import Generics.SOP.Metadata
-#endif
 
 -------------------------------------------------------------------------------
 -- Representations
@@ -74,11 +71,7 @@ rep = iso SOP.from SOP.to
 -- >>> ('x', True) ^. productRep
 -- I 'x' :* I True :* Nil
 --
-#if MIN_VERSION_generics_sop(0,3,1)
 productRep :: (IsProductType a xs, IsProductType b ys) => Iso a b (NP I xs) (NP I ys)
-#else
-productRep :: (Generic a, Generic b, Code a ~ '[xs], Code b ~ '[ys]) =>  Iso a b (NP I xs) (NP I ys)
-#endif
 productRep = rep . sop . nsSingleton
 
 -------------------------------------------------------------------------------
@@ -90,25 +83,25 @@ productRep = rep . sop . nsSingleton
 -- >>> Just 'x' ^. rep . sop
 -- S (Z (I 'x' :* Nil))
 sop ::
-    forall (f :: k -> *) xss yss.
+    forall k (f :: k -> Type) xss yss.
     Iso (SOP f xss) (SOP f yss) (NS (NP f) xss) (NS (NP f) yss)
 sop = iso unSOP SOP
 
 -- | Alias for 'sop'.
 _SOP ::
-    forall (f :: k -> *) xss yss.
+    forall k (f :: k -> Type) xss yss.
     Iso (SOP f xss) (SOP f yss) (NS (NP f) xss) (NS (NP f) yss)
 _SOP = sop
 
 -- | The only field of 'POP'.
 pop ::
-    forall (f :: k -> *) xss yss.
+    forall k (f :: k -> Type) xss yss.
     Iso (POP f xss) (POP f yss) (NP (NP f) xss) (NP (NP f) yss)
 pop = iso unPOP POP
 
 -- | Alias for 'pop'.
 _POP ::
-    forall (f :: k -> *) xss yss.
+    forall k (f :: k -> Type) xss yss.
     Iso (POP f xss) (POP f yss) (NP (NP f) xss) (NP (NP f) yss)
 _POP = pop
 
@@ -147,15 +140,12 @@ instance Wrapped (K a b) where
 -------------------------------------------------------------------------------
 
 npSingleton ::
-    forall (f :: k -> *) x y.
+    forall k (f :: k -> Type) x y.
     Iso (NP f '[x]) (NP f '[y]) (f x) (f y)
 npSingleton = iso g s
   where
     g :: NP f '[x] -> f x
     g (x  :* Nil)   = x
-#if __GLASGOW_HASKELL__ < 800
-    g _ = error "_NPSingleton"
-#endif
 
     s :: f y -> NP f '[y]
     s y = y :* Nil
@@ -169,7 +159,7 @@ instance (xs ~ '[x]) => Wrapped (NS f xs) where
     _Wrapped' = nsSingleton
 
 npHead ::
-    forall (f :: k -> *) x y zs.
+    forall k (f :: k -> Type) x y zs.
     Lens (NP f (x ': zs)) (NP f (y ': zs)) (f x) (f y)
 npHead = lens g s
   where
@@ -180,7 +170,7 @@ npHead = lens g s
     s (_x :*  zs) y = y :* zs
 
 npTail ::
-    forall (f :: k -> *) x ys zs.
+    forall k (f :: k -> Type) x ys zs.
     Lens (NP f (x ': ys)) (NP f (x ': zs)) (NP f ys) (NP f zs)
 npTail = lens g s
   where
@@ -222,20 +212,16 @@ instance Field9 (POP f' (a ': b ': c ': d ': e ': f ': g ': h ': x ': zs)) (POP 
 -------------------------------------------------------------------------------
 
 nsSingleton ::
-    forall (f :: k -> *) x y.
+    forall k (f :: k -> Type) x y.
     Iso (NS f '[x]) (NS f '[y]) (f x) (f y)
 nsSingleton = iso g Z
   where
     g :: NS f '[x] -> f x
     g (Z x)   = x
-#if __GLASGOW_HASKELL__ < 800
-    g _ = error "singletonS"
-#else
     g (S v) = case v of {}
-#endif
 
 _Z ::
-    forall (f :: k -> *) x y zs.
+    forall k (f :: k -> Type) x y zs.
     Prism (NS f (x ': zs)) (NS f (y ': zs)) (f x) (f y)
 _Z = prism Z p
   where
@@ -244,7 +230,7 @@ _Z = prism Z p
     p (S xs) = Left (S xs)
 
 _S ::
-    forall (f :: k -> *) x ys zs.
+    forall k (f :: k -> Type) x ys zs.
     Prism (NS f (x ': ys)) (NS f (x ': zs)) (NS f ys) (NS f zs)
 _S = prism S p
   where
@@ -260,61 +246,34 @@ moduleName :: Lens' (DatatypeInfo xss) ModuleName
 moduleName = lens g s
   where
     g :: DatatypeInfo xss -> ModuleName
-#if MIN_VERSION_generics_sop(0,5,0)
     g (ADT m _ _ _)   = m
-#else
-    g (ADT m _ _)     = m
-#endif
     g (Newtype m _ _) = m
 
     s :: DatatypeInfo xss -> ModuleName -> DatatypeInfo xss
-#if MIN_VERSION_generics_sop(0,5,0)
     s (ADT _ n cs ss) m = ADT m n cs ss
-#else
-    s (ADT _ n cs)    m = ADT m n cs
-#endif
     s (Newtype _ n c) m = Newtype m n c
 
 datatypeName :: Lens' (DatatypeInfo xss) DatatypeName
 datatypeName = lens g s
   where
     g :: DatatypeInfo xss -> DatatypeName
-#if MIN_VERSION_generics_sop(0,5,0)
     g (ADT _ n _ _)   = n
-#else
-    g (ADT _ n _)     = n
-#endif
     g (Newtype _ n _) = n
 
     s :: DatatypeInfo xss -> DatatypeName -> DatatypeInfo xss
-#if MIN_VERSION_generics_sop(0,5,0)
     s (ADT m _ cs ss) n = ADT m n cs ss
-#else
-    s (ADT m _ cs)    n = ADT m n cs
-#endif
     s (Newtype m _ c) n = Newtype m n c
 
 constructorInfo :: Lens' (DatatypeInfo xss) (NP ConstructorInfo xss)
 constructorInfo = lens g s
   where
     g :: DatatypeInfo xss -> NP ConstructorInfo xss
-#if MIN_VERSION_generics_sop(0,5,0)
     g (ADT _ _ cs _)  = cs
-#else
-    g (ADT _ _ cs)    = cs
-#endif
     g (Newtype _ _ c) = c :* Nil
 
     s :: DatatypeInfo xss -> NP ConstructorInfo xss -> DatatypeInfo xss
-#if MIN_VERSION_generics_sop(0,5,0)
     s (ADT m n _ ss)  cs          = ADT m n cs ss
-#else
-    s (ADT m n _)     cs          = ADT m n cs
-#endif
     s (Newtype m n _) (c :* Nil)  = Newtype m n c
-#if __GLASGOW_HASKELL__ < 800
-    s _ _ = error "constructorInfo set: impossible happened"
-#endif
 
 -- | /Note:/ 'Infix' constructor has operator as a 'ConstructorName'. Use as
 -- setter with care.
@@ -323,9 +282,7 @@ constructorName f (Constructor n      ) = (\ n' -> Constructor n'      ) `fmap` 
 constructorName f (Infix       n a fix) = (\ n' -> Infix       n' a fix) `fmap` f n
 constructorName f (Record      n finfo) = (\ n' -> Record      n' finfo) `fmap` f n
 
-#if MIN_VERSION_generics_sop(0,5,0)
 -- | Strictness info is only aviable for 'ADT' data. This combinator is available only with @generics-sop@ 0.5 or later.
 strictnessInfo :: Traversal' (DatatypeInfo xss) (POP StrictnessInfo xss)
 strictnessInfo _ di@Newtype {}   = pure di
 strictnessInfo f (ADT m n cs ss) = ADT m n cs <$> f ss
-#endif
