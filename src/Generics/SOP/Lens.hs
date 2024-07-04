@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP                   #-}
 {-# LANGUAGE ConstraintKinds       #-}
 {-# LANGUAGE DataKinds             #-}
 {-# LANGUAGE EmptyCase             #-}
@@ -9,10 +8,6 @@
 {-# LANGUAGE TypeFamilies          #-}
 {-# LANGUAGE TypeOperators         #-}
 {-# OPTIONS_GHC -fno-warn-orphans  #-}
-
-#if __GLASGOW_HASKELL__ <804
-{-# LANGUAGE TypeInType            #-}
-#endif
 
 -- | Lenses for "Generics.SOP"
 --
